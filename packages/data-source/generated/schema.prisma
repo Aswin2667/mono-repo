@@ -1,0 +1,773 @@
+generator client {
+  provider      = "prisma-client-js"
+  output        = "../generated"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Stores {
+  id                         Int                       @id @default(autoincrement())
+  store_id                   String                    @unique @default(uuid())
+  domain                     String
+  myshopify_domain           String                    @unique
+  email                      String
+  blacklisted                Boolean
+  currency_code              String
+  country_code               String
+  language                   String
+  status                     StoreStatusType
+  store_details              Json
+  remote_details             Json?
+  admin_access_token         String
+  storefront_access_token    String
+  created_at                 BigInt
+  updated_at                 BigInt
+  shopify_store_id           BigInt?
+  landing_page_id            BigInt?
+  portal_page_id             BigInt?
+  contact_email              String                    @default("")
+  contact_name               String                    @default("")
+  contact_phone              String?
+  webhook_registration_check Boolean?                  @default(false)
+  activity_log               ActivityLog[]
+  affiliate_bonus            AffiliateBonus[]
+  affiliate_discounts        AffiliateDiscounts[]
+  affiliate_gifts            AffiliateGifts[]
+  affiliate_program_history  AffiliateProgramHistory[]
+  affiliate_programs         AffiliatePrograms[]
+  affiliates                 Affiliates[]
+  AppSubscription            AppSubscription?
+  bonus                      Bonus[]
+  commissions                Commissions[]
+  customer_discounts         CustomerDiscounts[]
+  customers                  Customers[]
+  gifts                      Gifts[]
+  Integrations               Integrations[]
+  jobs                       Jobs[]
+  messageHistory             MessageHistory[]
+  notifications              Notifications[]
+  orderItems                 OrderItems[]
+  orders                     Orders[]
+  PaymentGateway             PaymentGateway[]
+  payouts                    Payouts[]
+  program_bonus              ProgramBonus[]
+  programs                   Programs[]
+  settings                   Settings?
+  tiers                      Tiers[]
+  transactions               Transactions[]
+
+  @@map("stores")
+}
+
+model Members {
+  id             Int          @id @default(autoincrement())
+  member_id      String       @unique @default(uuid())
+  first_name     String
+  last_name      String
+  email          String       @unique
+  phone          String?      @unique
+  member_details Json
+  created_at     BigInt
+  updated_at     BigInt
+  affiliates     Affiliates[]
+
+  @@map("members")
+}
+
+model Programs {
+  id                 Int                 @id @default(autoincrement())
+  store_id           Int
+  title              String
+  description        String
+  currency_code      String
+  program_details    Json
+  status             ProgramStatusType
+  created_at         BigInt
+  updated_at         BigInt
+  affiliate_programs AffiliatePrograms[]
+  customer_discounts CustomerDiscounts?
+  Orders             Orders[]
+  program_bonus      ProgramBonus[]
+  stores             Stores              @relation(fields: [store_id], references: [id])
+  tiers              Tiers[]
+  activity_log       ActivityLog[]
+
+  @@unique([store_id, title])
+  @@map("programs")
+}
+
+model Tiers {
+  id              Int         @id @default(autoincrement())
+  store_id        Int
+  program_id      Int
+  tier_type       TierType
+  min_value       Float
+  max_value       Float?
+  commission_type EarningType
+  commission_rate Float
+  created_at      BigInt
+  updated_at      BigInt
+  programs        Programs    @relation(fields: [program_id], references: [id])
+  stores          Stores      @relation(fields: [store_id], references: [id])
+
+  @@map("tiers")
+}
+
+model CustomerDiscounts {
+  id               Int                  @id @default(autoincrement())
+  store_id         Int
+  program_id       Int                  @unique
+  discount_rate    Float
+  discount_options Json
+  created_at       BigInt
+  updated_at       BigInt
+  discount_type    CustomerDiscountType
+  programs         Programs             @relation(fields: [program_id], references: [id])
+  stores           Stores               @relation(fields: [store_id], references: [id])
+
+  @@unique([store_id, program_id])
+  @@map("customer_discounts")
+}
+
+model Orders {
+  id                           Int                @id @default(autoincrement())
+  store_id                     Int
+  affiliate_id                 Int
+  customer_id                  Int
+  order_id                     BigInt             @unique
+  shopify_order_number         Int
+  shop_order_currency_code     String
+  shop_order_amount            Float
+  customer_order_currency_code String
+  customer_order_amount        Float
+  financial_status             String
+  order_details                Json
+  attribute_type               OrderAttributeType @default(REFERRAL_SALE)
+  status                       OrderStatusType
+  created_at                   BigInt
+  updated_at                   BigInt
+  program_id                   Int?
+  commissions                  Commissions?
+  order_items                  OrderItems[]
+  affiliates                   Affiliates         @relation(fields: [affiliate_id], references: [id])
+  customers                    Customers          @relation(fields: [customer_id], references: [id])
+  programs                     Programs?          @relation(fields: [program_id], references: [id])
+  stores                       Stores             @relation(fields: [store_id], references: [id])
+  activity_log                 ActivityLog[]
+
+  @@map("orders")
+}
+
+model OrderItems {
+  id                          Int        @id @default(autoincrement())
+  store_id                    Int
+  affiliate_id                Int
+  customer_id                 Int
+  order_id                    Int
+  item_id                     BigInt     @unique
+  product_id                  BigInt
+  variant_id                  BigInt
+  product_title               String
+  variant_title               String
+  quantity                    Int
+  shop_item_currency_code     String
+  shop_item_amount            Float
+  customer_item_currency_code String
+  customer_item_amount        Float
+  item_details                Json
+  created_at                  BigInt
+  updated_at                  BigInt
+  affiliates                  Affiliates @relation(fields: [affiliate_id], references: [id])
+  customers                   Customers  @relation(fields: [customer_id], references: [id])
+  orders                      Orders     @relation(fields: [order_id], references: [id])
+  stores                      Stores     @relation(fields: [store_id], references: [id])
+
+  @@map("order_items")
+}
+
+model Commissions {
+  id            Int               @id @default(autoincrement())
+  store_id      Int
+  affiliate_id  Int
+  order_id      Int               @unique
+  currency_code String
+  amount        Float
+  status        StatusType
+  approval_mode ApprovalModeType?
+  review_on     BigInt?
+  created_at    BigInt
+  updated_at    BigInt
+  affiliates    Affiliates        @relation(fields: [affiliate_id], references: [id])
+  orders        Orders            @relation(fields: [order_id], references: [id])
+  stores        Stores            @relation(fields: [store_id], references: [id])
+
+  @@map("commissions")
+}
+
+model Payouts {
+  id              Int           @id @default(autoincrement())
+  store_id        Int
+  affiliate_id    Int
+  transaction_id  String        @unique @default(uuid())
+  currency_code   String
+  amount          Float
+  notes           String
+  payment_method  PaymentType
+  payment_details Json
+  status          StatusType
+  created_at      BigInt
+  updated_at      BigInt
+  user_id         BigInt?
+  job_id          Int           @unique
+  affiliates      Affiliates    @relation(fields: [affiliate_id], references: [id])
+  jobs            Jobs          @relation(fields: [job_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  stores          Stores        @relation(fields: [store_id], references: [id])
+  activity_log    ActivityLog[]
+
+  @@map("payouts")
+}
+
+model Bonus {
+  id              Int              @id @default(autoincrement())
+  store_id        Int
+  title           String
+  description     String
+  bonus_associate BonusType
+  target_type     TierType
+  target_goal     Float
+  bonus_type      EarningType
+  bonus_rate      Float
+  status          StatusType
+  begin_datetime  BigInt
+  expire_datetime BigInt
+  created_at      BigInt
+  updated_at      BigInt
+  affiliate_bonus AffiliateBonus[]
+  stores          Stores           @relation(fields: [store_id], references: [id])
+  program_bonus   ProgramBonus[]
+
+  @@map("bonus")
+}
+
+model Gifts {
+  id              Int              @id @default(autoincrement())
+  store_id        Int
+  title           String
+  description     String
+  products        Json
+  gift_type       GiftType
+  status          StatusType
+  shipping_method ShippingType
+  created_at      BigInt
+  updated_at      BigInt
+  affiliate_gifts AffiliateGifts[]
+  stores          Stores           @relation(fields: [store_id], references: [id])
+
+  @@map("gifts")
+}
+
+model Transactions {
+  id             Int                      @id @default(autoincrement())
+  store_id       Int
+  affiliate_id   Int
+  reference_type TransactionReferenceType
+  reference_id   String
+  currency_code  String
+  type           TransactionType
+  is_reverted    Boolean                  @default(false)
+  amount         Float
+  created_at     BigInt
+  updated_at     BigInt
+  affiliates     Affiliates               @relation(fields: [affiliate_id], references: [id])
+  stores         Stores                   @relation(fields: [store_id], references: [id])
+
+  @@map("transactions")
+}
+
+model Settings {
+  id                       Int                       @id @default(autoincrement())
+  store_id                 Int                       @unique
+  commission_delay         Int                       @default(0)
+  commission_approval_mode ApprovalModeType
+  commission_calculation   CommissionCalculationType
+  details                  Json?
+  min_threshold            Int?                      @default(100)
+  primary_color            String                    @default("#000000")
+  secondary_color          String                    @default("#ffffff")
+  created_at               BigInt
+  updated_at               BigInt
+  current_email_lang       String                    @default("EN")
+  email_limit              Int                       @default(20)
+  notify_once              Boolean                   @default(false)
+  stores                   Stores                    @relation(fields: [store_id], references: [id])
+
+  @@map("settings")
+}
+
+model Jobs {
+  id           Int            @id @default(autoincrement())
+  store_id     Int
+  job_metadata Json
+  status       JobsStatusType
+  type         JobType
+  job_details  Json
+  created_at   BigInt
+  updated_at   BigInt
+  stores       Stores         @relation(fields: [store_id], references: [id])
+  payouts      Payouts?
+
+  @@map("jobs")
+}
+
+model Customers {
+  id                  Int          @id @default(autoincrement())
+  store_id            Int
+  affiliate_id        Int
+  shopify_customer_id BigInt
+  first_name          String
+  last_name           String
+  contact_type        ContactType
+  email               String?
+  phone               String?
+  customer_details    Json
+  created_at          BigInt
+  updated_at          BigInt
+  affiliates          Affiliates   @relation(fields: [affiliate_id], references: [id])
+  stores              Stores       @relation(fields: [store_id], references: [id])
+  order_items         OrderItems[]
+  orders              Orders[]
+
+  @@unique([store_id, affiliate_id, email])
+  @@unique([store_id, affiliate_id, phone])
+  @@map("customers")
+}
+
+model Affiliates {
+  id                        Int                       @id @default(autoincrement())
+  store_id                  Int
+  member_id                 Int
+  first_name                String?
+  last_name                 String?
+  phone                     String?
+  referral_code             String
+  status                    AffiliateStatusType
+  affiliate_details         Json?
+  payout_requested          Boolean?                  @default(false)
+  created_at                BigInt
+  updated_at                BigInt
+  source                    AffiliateSourceType?
+  affiliate_bonus           AffiliateBonus[]
+  affiliate_discounts       AffiliateDiscounts[]
+  affiliate_gifts           AffiliateGifts[]
+  affiliate_program_history AffiliateProgramHistory[]
+  affiliate_programs        AffiliatePrograms[]
+  members                   Members                   @relation(fields: [member_id], references: [id])
+  stores                    Stores                    @relation(fields: [store_id], references: [id])
+  commissions               Commissions[]
+  customers                 Customers[]
+  order_items               OrderItems[]
+  orders                    Orders[]
+  payouts                   Payouts[]
+  transactions              Transactions[]
+  activity_log              ActivityLog[]
+
+  @@unique([store_id, phone])
+  @@unique([store_id, member_id])
+  @@unique([store_id, referral_code])
+  @@map("affiliates")
+}
+
+model AffiliatePrograms {
+  id           Int        @id @default(autoincrement())
+  store_id     Int
+  affiliate_id Int
+  program_id   Int
+  created_at   BigInt
+  updated_at   BigInt
+  affiliates   Affiliates @relation(fields: [affiliate_id], references: [id])
+  programs     Programs   @relation(fields: [program_id], references: [id])
+  stores       Stores     @relation(fields: [store_id], references: [id])
+
+  @@unique([store_id, affiliate_id])
+  @@unique([store_id, affiliate_id, program_id])
+  @@map("affiliate_programs")
+}
+
+model AffiliateProgramHistory {
+  id           Int                      @id @default(autoincrement())
+  store_id     Int
+  affiliate_id Int
+  program_id   Int
+  program_name String
+  status       ProgramHistoryStatusType
+  created_at   BigInt
+  updated_at   BigInt
+  affiliates   Affiliates               @relation(fields: [affiliate_id], references: [id])
+  stores       Stores                   @relation(fields: [store_id], references: [id])
+
+  @@map("affiliate_program_history")
+}
+
+model AffiliateDiscounts {
+  id            Int                @id @default(autoincrement())
+  store_id      Int
+  affiliate_id  Int
+  discount_id   BigInt             @unique
+  discount_code String
+  is_deleted    Boolean?           @default(false)
+  status        DiscountStatusType
+  created_at    BigInt
+  updated_at    BigInt
+  affiliates    Affiliates         @relation(fields: [affiliate_id], references: [id])
+  stores        Stores             @relation(fields: [store_id], references: [id])
+
+  @@unique([store_id, affiliate_id, discount_id])
+  @@map("affiliate_discounts")
+}
+
+model AffiliateGifts {
+  id           Int        @id @default(autoincrement())
+  store_id     Int
+  affiliate_id Int
+  gift_id      Int
+  created_at   BigInt
+  updated_at   BigInt
+  affiliates   Affiliates @relation(fields: [affiliate_id], references: [id])
+  gifts        Gifts      @relation(fields: [gift_id], references: [id])
+  stores       Stores     @relation(fields: [store_id], references: [id])
+
+  @@unique([store_id, affiliate_id, gift_id])
+  @@map("affiliate_gifts")
+}
+
+model AffiliateBonus {
+  id           Int        @id @default(autoincrement())
+  store_id     Int
+  affiliate_id Int
+  bonus_id     Int
+  created_at   BigInt
+  updated_at   BigInt
+  affiliates   Affiliates @relation(fields: [affiliate_id], references: [id])
+  bonus        Bonus      @relation(fields: [bonus_id], references: [id])
+  stores       Stores     @relation(fields: [store_id], references: [id])
+
+  @@unique([store_id, affiliate_id, bonus_id])
+  @@map("affiliate_bonus")
+}
+
+model ProgramBonus {
+  id         Int      @id @default(autoincrement())
+  store_id   Int
+  program_id Int
+  bonus_id   Int
+  created_at BigInt
+  updated_at BigInt
+  bonus      Bonus    @relation(fields: [bonus_id], references: [id])
+  programs   Programs @relation(fields: [program_id], references: [id])
+  stores     Stores   @relation(fields: [store_id], references: [id])
+
+  @@unique([store_id, program_id, bonus_id])
+  @@map("program_bonus")
+}
+
+model Otp {
+  id         Int    @id @default(autoincrement())
+  code       Int    @unique
+  email      String @unique
+  expire_at  BigInt
+  created_at BigInt
+  updated_at BigInt
+
+  @@map("otp")
+}
+
+model Notifications {
+  id              Int                      @id @default(autoincrement())
+  notification_id String                   @unique @default(uuid())
+  store_id        Int
+  type            NotificationType
+  receiver_type   NotificationReceiverType
+  subject         String
+  status          NotificationStatusType
+  created_at      BigInt
+  updated_at      BigInt
+  languages       String                   @default("EN")
+  stores          Stores                   @relation(fields: [store_id], references: [id])
+
+  @@unique([store_id, type, receiver_type, languages])
+  @@map("notifications")
+}
+
+model ActivityLog {
+  id           Int                @id @default(autoincrement())
+  store_id     Int
+  affiliate_id Int?
+  program_id   Int?
+  order_id     Int?
+  payout_id    Int?
+  entity_type  ActivityEntityType
+  message      String
+  created_at   BigInt
+  stores       Stores             @relation(fields: [store_id], references: [id])
+  affiliates   Affiliates?        @relation(fields: [affiliate_id], references: [id])
+  programs     Programs?          @relation(fields: [program_id], references: [id])
+  orders       Orders?            @relation(fields: [order_id], references: [id])
+  payouts      Payouts?           @relation(fields: [payout_id], references: [id])
+
+  @@map("activity_log")
+}
+
+model MessageHistory {
+  id          Int                      @id @default(autoincrement())
+  status      MessageHistoryStatusType
+  referenceId String
+  metaData    Json
+  created_at  BigInt
+  store_id    Int
+  stores      Stores                   @relation(fields: [store_id], references: [id])
+
+  @@map("message_history")
+}
+
+model PaymentGateway {
+  id           Int                    @id @default(autoincrement())
+  store_id     Int
+  payment_uuid String                 @default(uuid())
+  provider     PaymentType
+  credentials  Json
+  webhook_id   String?
+  status       NotificationStatusType
+  created_at   BigInt
+  updated_at   BigInt
+  stores       Stores                 @relation(fields: [store_id], references: [id])
+
+  @@unique([store_id, provider])
+  @@map("payment_gateway")
+}
+
+model AppSubscription {
+  id            Int                 @id @default(autoincrement())
+  store_id      Int                 @unique
+  plan_id       String?             @unique
+  name          String
+  price         Int
+  status        AppSubscriptionType
+  currency_code String
+  created_at    BigInt
+  updated_at    BigInt
+  stores        Stores              @relation(fields: [store_id], references: [id])
+
+  @@map("app_subscription")
+}
+
+model Integrations {
+  id                  Int                    @id @default(autoincrement())
+  store_id            Int
+  integration_type    IntegrationType
+  status              NotificationStatusType
+  api_key             String
+  api_secret          String?
+  created_at          BigInt
+  updated_at          BigInt
+  integration_details Json?
+  stores              Stores                 @relation(fields: [store_id], references: [id])
+
+  @@unique([store_id, integration_type])
+  @@map("integrations")
+}
+
+enum MessageHistoryStatusType {
+  SUCCEEDED
+  FAILED
+}
+
+enum AppSubscriptionType {
+  PENDING
+  ACTIVE
+  INACTIVE
+}
+
+enum IntegrationType {
+  KLAVIYO
+  ZAPIER
+}
+
+enum StoreStatusType {
+  INSTALLED
+  UNINSTALLED
+  STORE_REOPENED
+  STORE_CLOSED
+}
+
+enum MemberType {
+  AFFILIATE
+  CUSTOMER
+}
+
+enum ContactType {
+  BOTH
+  PHONE
+  EMAIL
+}
+
+enum DiscountStatusType {
+  ACTIVATED
+  DEACTIVATED
+}
+
+enum CommissionCalculationType {
+  BOTH
+  NORMAL
+  WITHOUT_TAXES
+  WITHOUT_SHIPPING
+}
+
+enum ProgramStatusType {
+  ACTIVE
+  DRAFT
+  ARCHIVED
+}
+
+enum NotificationStatusType {
+  ENABLED
+  DISABLED
+}
+
+enum NotificationType {
+  AFFILIATE_APPLICATION_RECEIVED
+  AFFILIATE_APPLICATION_APPROVED
+  AFFILIATE_APPLICATION_REJECTED
+  AFFILIATE_SALE_MADE
+  AFFILIATE_COMMISSION_APPROVED
+  AFFILIATE_PAYOUT_REQUEST_RECEIVED
+  AFFILIATE_PAYOUT_PROCESSED
+}
+
+enum NotificationReceiverType {
+  AFFILIATE
+  STORE_OWNER
+}
+
+enum ActivityEntityType {
+  AFFILIATES
+  STORES
+  PROGRAMS
+  COMMISSIONS
+  DISCOUNTS
+  PAYOUTS
+  ORDERS
+}
+
+enum EarningType {
+  FLAT
+  PERCENTAGE
+}
+
+enum CustomerDiscountType {
+  FLAT
+  PERCENTAGE
+  FREE_SHIPPING
+  NO_DISCOUNT
+}
+
+enum TierType {
+  TOTAL_AMOUNT
+  TOTAL_SALES
+  TOTAL_REFERRALS
+  DEFAULT
+}
+
+enum GiftType {
+  DISCOUNTED
+  FREE
+}
+
+enum ShippingType {
+  NOT_INCLUDED
+  INCLUDED
+}
+
+enum BonusType {
+  MEMBERS
+  PROGRAMS
+}
+
+enum StatusType {
+  APPROVED
+  PENDING
+  REJECTED
+}
+
+enum AffiliateStatusType {
+  APPROVED
+  PENDING
+  REJECTED
+  ARCHIVED
+}
+
+enum OrderStatusType {
+  SUCCESSFUL
+  UNSUCCESSFUL
+  FRAUDULENT
+}
+
+enum PaymentType {
+  OFFLINE
+  PAYPAL
+  GIFT_CARD
+  COUPON
+  TREMENDOUS
+}
+
+enum TransactionReferenceType {
+  ORDER
+  PAYOUT
+}
+
+enum TransactionType {
+  CREDIT
+  DEBIT
+}
+
+enum ApprovalModeType {
+  MANUAL
+  IMMEDIATE
+  AUTOMATIC
+}
+
+enum OtpType {
+  PHONE
+  EMAIL
+}
+
+enum ProgramHistoryStatusType {
+  ADDED
+  REMOVED
+}
+
+enum JobsStatusType {
+  CREATED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum JobType {
+  IMPORT_CSV
+  PAYOUT_PROCESS
+}
+
+enum AffiliateSourceType {
+  MANUAL_UPLOAD
+  MANUAL_CREATE
+  SIGN_UP_FORM
+}
+
+enum OrderAttributeType {
+  REFERRAL_SALE
+  RECURRING_SALE
+}
